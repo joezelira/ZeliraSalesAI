@@ -21,12 +21,22 @@ export class GoogleSheetsService {
     }
 
     try {
-      const response = await fetch(this.config.webAppUrl);
+      const response = await fetch(this.config.webAppUrl, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Sophie-AI-Sales-Assistant'
+        }
+      });
       const data = await response.json();
       
       if (data.success && data.rows) {
         this.lastRowCount = data.rows.length;
         console.log(`Google Sheets Web App initialized. Found ${this.lastRowCount} rows.`);
+        
+        // Process existing leads if any
+        for (const row of data.rows) {
+          await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
+        }
       } else {
         console.log('Google Sheets Web App connected but no data returned.');
       }
@@ -41,7 +51,12 @@ export class GoogleSheetsService {
     }
 
     try {
-      const response = await fetch(this.config.webAppUrl);
+      const response = await fetch(this.config.webAppUrl, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Sophie-AI-Sales-Assistant'
+        }
+      });
       const data = await response.json();
 
       if (data.success && data.rows) {
@@ -51,7 +66,7 @@ export class GoogleSheetsService {
           const newRows = data.rows.slice(this.lastRowCount);
           
           for (const row of newRows) {
-            await this.processNewLead(row);
+            await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
           }
 
           this.lastRowCount = currentRowCount;
