@@ -17,15 +17,23 @@ function doGet(e) {
     
     // Convert to the format Sophie expects
     const leads = dataRows.map(row => {
+      const email = row[1] || '';
+      const timestamp = row[0] || '';
+      
+      // Extract name from email (before @ symbol) as fallback
+      const emailName = email.split('@')[0] || '';
+      const formattedName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      
       return {
-        name: row[0] || '',          // Column A: Name
-        email: row[1] || '',         // Column B: Email
-        company: row[2] || '',       // Column C: Company
-        role: row[3] || '',          // Column D: Role/Position
-        phone: row[4] || '',         // Column E: Phone
-        source: row[5] || 'website'  // Column F: Source (default to 'website')
+        name: formattedName,         // Generated from email
+        email: email,                // Column B: Email
+        company: '',                 // Will be enriched by AI
+        role: '',                    // Will be enriched by AI  
+        phone: '',                   // Not collected in form
+        source: 'website_form',      // Form submission source
+        timestamp: timestamp         // Column A: Timestamp
       };
-    }).filter(lead => lead.name && lead.email); // Only include rows with name and email
+    }).filter(lead => lead.email && lead.email.includes('@')); // Only include valid emails
     
     return ContentService
       .createTextOutput(JSON.stringify({
