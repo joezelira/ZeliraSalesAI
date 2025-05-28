@@ -10,7 +10,7 @@ export class GoogleSheetsService {
 
   constructor() {
     this.config = {
-      webAppUrl: process.env.GOOGLE_WEBAPP_URL || 'https://script.google.com/macros/s/AKfycbzBrFVj-6mBPkbfRaCrG8WjAyJ_R0qojaOyjl35jS9yYM6RIuoqdSPND7EM56SLibxtNw/exec',
+      webAppUrl: process.env.GOOGLE_WEBAPP_URL || 'https://script.google.com/macros/s/AKfycbykgyPwbH92lU8vVbpv60jh7TKjrpoH2YMzjm2KklnS7KICD7cCfxfJ3omoe-ZtFvdygg/exec',
     };
   }
 
