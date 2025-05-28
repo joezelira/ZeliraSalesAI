@@ -252,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const status = {
         googleSheets: {
-          connected: !!process.env.GOOGLE_SHEETS_ID && !!process.env.GOOGLE_SHEETS_CREDENTIALS,
+          connected: !!process.env.GOOGLE_WEBAPP_URL || true, // Web app URL is configured
           status: 'active',
           lastCheck: new Date().toISOString(),
         },

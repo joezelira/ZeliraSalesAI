@@ -1,77 +1,62 @@
-import { google } from 'googleapis';
 import { storage } from '../storage';
 
 interface GoogleSheetsConfig {
-  spreadsheetId: string;
-  range: string;
-  credentials: any;
+  webAppUrl: string;
 }
 
 export class GoogleSheetsService {
-  private sheets: any;
   private config: GoogleSheetsConfig;
   private lastRowCount = 0;
 
   constructor() {
     this.config = {
-      spreadsheetId: process.env.GOOGLE_SHEETS_ID || '',
-      range: process.env.GOOGLE_SHEETS_RANGE || 'Sheet1!A:F',
-      credentials: process.env.GOOGLE_SHEETS_CREDENTIALS ? JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS) : null,
+      webAppUrl: process.env.GOOGLE_WEBAPP_URL || 'https://script.google.com/macros/s/AKfycbzBrFVj-6mBPkbfRaCrG8WjAyJ_R0qojaOyjl35jS9yYM6RIuoqdSPND7EM56SLibxtNw/exec',
     };
-
-    if (this.config.credentials) {
-      const auth = new google.auth.GoogleAuth({
-        credentials: this.config.credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
-
-      this.sheets = google.sheets({ version: 'v4', auth });
-    }
   }
 
   async initialize(): Promise<void> {
-    if (!this.sheets || !this.config.spreadsheetId) {
-      console.log('Google Sheets not configured. Skipping initialization.');
+    if (!this.config.webAppUrl) {
+      console.log('Google Web App not configured. Skipping initialization.');
       return;
     }
 
     try {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: this.config.spreadsheetId,
-        range: this.config.range,
-      });
-
-      const rows = response.data.values || [];
-      this.lastRowCount = rows.length;
+      const response = await fetch(this.config.webAppUrl);
+      const data = await response.json();
       
-      console.log(`Google Sheets initialized. Found ${this.lastRowCount} rows.`);
+      if (data.success && data.rows) {
+        this.lastRowCount = data.rows.length;
+        console.log(`Google Sheets Web App initialized. Found ${this.lastRowCount} rows.`);
+      } else {
+        console.log('Google Sheets Web App connected but no data returned.');
+      }
     } catch (error) {
-      console.error('Failed to initialize Google Sheets:', error);
+      console.error('Failed to initialize Google Sheets Web App:', error);
     }
   }
 
   async checkForNewLeads(): Promise<void> {
-    if (!this.sheets || !this.config.spreadsheetId) {
+    if (!this.config.webAppUrl) {
       return;
     }
 
     try {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: this.config.spreadsheetId,
-        range: this.config.range,
-      });
+      const response = await fetch(this.config.webAppUrl);
+      const data = await response.json();
 
-      const rows = response.data.values || [];
-      const currentRowCount = rows.length;
+      if (data.success && data.rows) {
+        const currentRowCount = data.rows.length;
 
-      if (currentRowCount > this.lastRowCount) {
-        const newRows = rows.slice(this.lastRowCount);
-        
-        for (const row of newRows) {
-          await this.processNewLead(row);
+        if (currentRowCount > this.lastRowCount) {
+          const newRows = data.rows.slice(this.lastRowCount);
+          
+          for (const row of newRows) {
+            await this.processNewLead(row);
+          }
+
+          this.lastRowCount = currentRowCount;
+          console.log(`Processed ${newRows.length} new leads from Google Sheets`);
         }
-
-        this.lastRowCount = currentRowCount;
       }
     } catch (error) {
       console.error('Failed to check for new leads:', error);
@@ -117,12 +102,12 @@ export class GoogleSheetsService {
   }
 
   startMonitoring(intervalMs = 30000): void {
-    if (!this.sheets || !this.config.spreadsheetId) {
+    if (!this.config.webAppUrl) {
       console.log('Google Sheets monitoring disabled - not configured');
       return;
     }
 
-    console.log(`Starting Google Sheets monitoring every ${intervalMs}ms`);
+    console.log(`Starting Google Sheets Web App monitoring every ${intervalMs}ms`);
     
     setInterval(async () => {
       await this.checkForNewLeads();
