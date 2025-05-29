@@ -110,9 +110,9 @@ export class GoogleSheetsService {
       console.log(`New lead created: ${lead.name} (${lead.email})`);
 
       // Trigger email sending (this would be handled by the email service)
-      // await emailService.sendWelcomeEmail(lead);
-    } catch (error) {
-      console.error('Failed to process new lead:', error);
+      // console.log('Sending email to:', lead.email);
+await emailService.sendWelcomeEmail(lead);
+
     }
   }
 
