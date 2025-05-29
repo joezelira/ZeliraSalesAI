@@ -1,150 +1,81 @@
-import { storage } from '../storage';
-import { emailService } from './emailService'; // Corrected import path assuming same folder
+import { google } from 'googleapis';
+import { JWT } from 'google-auth-library';
+import fs from 'fs';
+import path from 'path';
+import emailService from './emailService'; // ✅ Corrected import
 
-interface GoogleSheetsConfig {
-  webAppUrl: string;
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '';
+const SHEET_NAME = 'Sheet1'; // Adjust as needed
+const CHECK_INTERVAL = 30000; // 30 seconds
+
+interface Lead {
+  timestamp: string;
+  email: string;
 }
 
-export class GoogleSheetsService {
-  private config: GoogleSheetsConfig;
-  private lastRowCount = 0;
+class GoogleSheetsService {
+  private auth: JWT;
+  private sheets: any;
+  private knownLeads: Set<string>;
 
   constructor() {
-    this.config = {
-      webAppUrl:
-        process.env.GOOGLE_WEBAPP_URL ||
-        'https://script.google.com/macros/s/AKfycbykgyPwbH92lU8vVbpv60jh7TKjrpoH2YMzjm2KklnS7KICD7cCfxfJ3omoe-ZtFvdygg/exec',
-    };
+    const keyFilePath = path.join(__dirname, '../../google-credentials.json');
+    const credentials = JSON.parse(fs.readFileSync(keyFilePath, 'utf-8'));
+
+    this.auth = new google.auth.JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: SCOPES,
+    });
+
+    this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+    this.knownLeads = new Set();
   }
 
-  async initialize(): Promise<void> {
-    if (!this.config.webAppUrl) {
-      console.log('Google Web App not configured. Skipping initialization.');
-      return;
-    }
+  public async initialize() {
+    console.log('Google Sheets Web App initialized.');
+    const leads = await this.getLeads();
+    leads.forEach((lead) => this.knownLeads.add(lead.timestamp));
+    console.log(`Found ${leads.length} rows.`);
 
-    try {
-      const response = await fetch(this.config.webAppUrl, {
-        redirect: 'follow',
-        headers: {
-          'User-Agent': 'Sophie-AI-Sales-Assistant',
-        },
-      });
-      const data = await response.json();
-
-      if (data.success && data.rows) {
-        this.lastRowCount = data.rows.length;
-        console.log(`Google Sheets Web App initialized. Found ${this.lastRowCount} rows.`);
-
-        // Process existing leads if any
-        for (const row of data.rows) {
-          await this.processNewLead([
-            row.timestamp,
-            row.email,
-            row.company,
-            row.role,
-            row.phone,
-            row.source,
-          ]);
-        }
-      } else {
-        console.log('Google Sheets Web App connected but no data returned.');
-      }
-    } catch (error) {
-      console.error('Failed to initialize Google Sheets Web App:', error);
-    }
+    setInterval(async () => {
+      await this.checkForNewLeads();
+    }, CHECK_INTERVAL);
   }
 
-  async checkForNewLeads(): Promise<void> {
-    if (!this.config.webAppUrl) {
-      return;
-    }
+  private async getLeads(): Promise<Lead[]> {
+    const response = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A:B`, // A: timestamp, B: email
+    });
 
-    try {
-      const response = await fetch(this.config.webAppUrl, {
-        redirect: 'follow',
-        headers: {
-          'User-Agent': 'Sophie-AI-Sales-Assistant',
-        },
-      });
-      const data = await response.json();
+    const rows = response.data.values || [];
+    return rows.slice(1).map((row: any[]) => ({
+      timestamp: row[0],
+      email: row[1],
+    }));
+  }
 
-      if (data.success && data.rows) {
-        const currentRowCount = data.rows.length;
+  private async checkForNewLeads() {
+    const leads = await this.getLeads();
 
-        if (currentRowCount > this.lastRowCount) {
-          const newRows = data.rows.slice(this.lastRowCount);
-
-          for (const row of newRows) {
-            await this.processNewLead([
-              row.timestamp,
-              row.email,
-              row.company,
-              row.role,
-              row.phone,
-              row.source,
-            ]);
-          }
-
-          this.lastRowCount = currentRowCount;
-          console.log(`Processed ${newRows.length} new leads from Google Sheets`);
-        }
+    for (const lead of leads) {
+      if (!this.knownLeads.has(lead.timestamp)) {
+        this.knownLeads.add(lead.timestamp);
+        console.log(`New lead created: ${lead.timestamp} (${lead.email})`);
+        await this.processNewLead(lead);
       }
-    } catch (error) {
-      console.error('Failed to check for new leads:', error);
     }
   }
 
-  private async processNewLead(row: string[]): Promise<void> {
+  private async processNewLead(lead: Lead) {
     try {
-      // Assuming columns: Name, Email, Company, Role, Phone, Source
-      const [name, email, company, role, phone, source] = row;
-
-      if (!name || !email) {
-        console.log('Skipping row with missing name or email');
-        return;
-      }
-
-      // Check if lead already exists
-      const existingLead = await storage.getLeadByEmail(email);
-      if (existingLead) {
-        console.log(`Lead with email ${email} already exists`);
-        return;
-      }
-
-      // Create new lead
-      const lead = await storage.createLead({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        company: company?.trim() || null,
-        role: role?.trim() || null,
-        phone: phone?.trim() || null,
-        source: source?.trim() || 'google_sheets',
-        status: 'new',
-        score: 0,
-      });
-
-      console.log(`New lead created: ${lead.name} (${lead.email})`);
-
-      // Trigger email sending
-      await emailService.sendWelcomeEmail(lead);
+      await emailService.sendWelcomeEmail(lead.email);
     } catch (error) {
       console.error('Failed to process new lead:', error);
     }
   }
-
-  startMonitoring(intervalMs = 30000) {
-    if (!this.config.webAppUrl) {
-      console.log('Google Sheets monitoring disabled - not configured');
-      return;
-    }
-
-    console.log(`Starting Google Sheets Web App monitoring every ${intervalMs}ms`);
-
-    setInterval(async () => {
-      await this.checkForNewLeads();
-    }, intervalMs);
-  }
 }
 
-export const googleSheetsService = new GoogleSheetsService();
+export default GoogleSheetsService;
