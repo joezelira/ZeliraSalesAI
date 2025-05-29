@@ -1,29 +1,34 @@
-// server/services/emailService.ts
-
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+dotenv.config();
 
-export const emailService = {
-  async sendEmail(to: string, subject: string, text: string) {
-    try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS,
-        },
-      });
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,       // e.g. sophie@zelira.ai
+    pass: process.env.EMAIL_PASS        // Gmail App Password
+  }
+});
 
-      const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to,
-        subject,
-        text,
-      };
+export async function sendWelcomeEmail(to: string) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: 'Thanks for enquiring - Zelira AI',
+    text: `Hi there,
 
-      await transporter.sendMail(mailOptions);
-      console.log(`Email sent to ${to}`);
-    } catch (error) {
-      console.error('Failed to send email:', error);
-    }
-  },
-};
+Thanks for enquiring with Zelira AI. Sophie, your AI sales rep, will be in touch shortly to assist you.
+
+Talk soon,  
+Sophie  
+Zelira AI`
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent:', info.response);
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+}
+
