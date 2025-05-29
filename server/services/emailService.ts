@@ -36,10 +36,7 @@ export class EmailService {
   async sendWelcomeEmail(lead: Lead): Promise<boolean> {
     try {
       const template = await storage.getDefaultEmailTemplate();
-      if (!template) {
-        console.error('No default email template found');
-        return false;
-      }
+      if (!template) return false;
 
       const personalizedBody = await openaiService.generatePersonalizedEmail(lead, template.body);
       const personalizedSubject = template.subject
@@ -97,7 +94,7 @@ export class EmailService {
       const mailOptions = {
         from: `Sophie - Zelira.ai <${this.fromEmail}>`,
         to: lead.email,
-        subject: subject,
+        subject,
         text: message,
         html: this.convertToHtml(message),
       };
@@ -107,7 +104,7 @@ export class EmailService {
       await storage.createEmailLog({
         leadId: lead.id,
         templateId: null,
-        subject: subject,
+        subject,
         body: message,
         sentAt: new Date(),
         openedAt: null,
@@ -121,7 +118,7 @@ export class EmailService {
         description: `Follow-up email sent to ${lead.name}`,
         metadata: {
           emailId: result.messageId,
-          subject: subject,
+          subject,
         },
       });
 
@@ -140,14 +137,13 @@ export class EmailService {
   async processEmailResponse(lead: Lead, responseText: string): Promise<void> {
     try {
       const analysis = await openaiService.analyzeEmailResponse(lead, responseText);
-
       const emailLogs = await storage.getEmailLogs();
-      const latestEmailLog = emailLogs.find(log => log.leadId === lead.id);
+      const latestEmailLog = emailLogs.find((log) => log.leadId === lead.id);
 
       if (latestEmailLog) {
         await storage.updateEmailLog(latestEmailLog.id, {
           responded: true,
-          responseText: responseText,
+          responseText,
         });
       }
 
