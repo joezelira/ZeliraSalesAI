@@ -111,9 +111,13 @@ export class GoogleSheetsService {
 
       // Trigger email sending (this would be handled by the email service)
       // console.log('Sending email to:', lead.email);
-await emailService.sendWelcomeEmail(lead);
+      await emailService.sendWelcomeEmail(lead);
 
+    } catch (error) {
+      console.error('Failed to process new lead:', error);
     }
+  }
+
   }
 
   startMonitoring(intervalMs = 30000): void {
