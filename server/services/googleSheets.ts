@@ -1,5 +1,5 @@
 import { storage } from '../storage';
-import { emailService } from '../services/emailService';  // <-- Adjust path as needed
+import { emailService } from './emailService'; // Corrected import path assuming same folder
 
 interface GoogleSheetsConfig {
   webAppUrl: string;
@@ -11,7 +11,9 @@ export class GoogleSheetsService {
 
   constructor() {
     this.config = {
-      webAppUrl: process.env.GOOGLE_WEBAPP_URL || 'https://script.google.com/macros/s/AKfycbykgyPwbH92lU8vVbpv60jh7TKjrpoH2YMzjm2KklnS7KICD7cCfxfJ3omoe-ZtFvdygg/exec',
+      webAppUrl:
+        process.env.GOOGLE_WEBAPP_URL ||
+        'https://script.google.com/macros/s/AKfycbykgyPwbH92lU8vVbpv60jh7TKjrpoH2YMzjm2KklnS7KICD7cCfxfJ3omoe-ZtFvdygg/exec',
     };
   }
 
@@ -25,8 +27,8 @@ export class GoogleSheetsService {
       const response = await fetch(this.config.webAppUrl, {
         redirect: 'follow',
         headers: {
-          'User-Agent': 'Sophie-AI-Sales-Assistant'
-        }
+          'User-Agent': 'Sophie-AI-Sales-Assistant',
+        },
       });
       const data = await response.json();
 
@@ -36,7 +38,14 @@ export class GoogleSheetsService {
 
         // Process existing leads if any
         for (const row of data.rows) {
-          await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
+          await this.processNewLead([
+            row.timestamp,
+            row.email,
+            row.company,
+            row.role,
+            row.phone,
+            row.source,
+          ]);
         }
       } else {
         console.log('Google Sheets Web App connected but no data returned.');
@@ -55,8 +64,8 @@ export class GoogleSheetsService {
       const response = await fetch(this.config.webAppUrl, {
         redirect: 'follow',
         headers: {
-          'User-Agent': 'Sophie-AI-Sales-Assistant'
-        }
+          'User-Agent': 'Sophie-AI-Sales-Assistant',
+        },
       });
       const data = await response.json();
 
@@ -67,7 +76,14 @@ export class GoogleSheetsService {
           const newRows = data.rows.slice(this.lastRowCount);
 
           for (const row of newRows) {
-            await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
+            await this.processNewLead([
+              row.timestamp,
+              row.email,
+              row.company,
+              row.role,
+              row.phone,
+              row.source,
+            ]);
           }
 
           this.lastRowCount = currentRowCount;
@@ -112,13 +128,12 @@ export class GoogleSheetsService {
 
       // Trigger email sending
       await emailService.sendWelcomeEmail(lead);
-
     } catch (error) {
       console.error('Failed to process new lead:', error);
     }
   }
 
-  startMonitoring(intervalMs = 30000): void {
+  startMonitoring(intervalMs = 30000) {
     if (!this.config.webAppUrl) {
       console.log('Google Sheets monitoring disabled - not configured');
       return;
