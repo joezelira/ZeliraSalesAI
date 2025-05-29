@@ -110,7 +110,6 @@ export class GoogleSheetsService {
       console.log(`New lead created: ${lead.name} (${lead.email})`);
 
       // Trigger email sending (this would be handled by the email service)
-      // console.log('Sending email to:', lead.email);
       await emailService.sendWelcomeEmail(lead);
 
     } catch (error) {
@@ -118,9 +117,7 @@ export class GoogleSheetsService {
     }
   }
 
-  }
-
-  startMonitoring(intervalMs = 30000): void {
+  startMonitoring(intervalMs = 30000) {
     if (!this.config.webAppUrl) {
       console.log('Google Sheets monitoring disabled - not configured');
       return;
