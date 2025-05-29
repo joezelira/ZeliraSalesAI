@@ -1,4 +1,5 @@
 import { storage } from '../storage';
+import { emailService } from '../services/emailService';  // <-- Adjust path as needed
 
 interface GoogleSheetsConfig {
   webAppUrl: string;
@@ -28,11 +29,11 @@ export class GoogleSheetsService {
         }
       });
       const data = await response.json();
-      
+
       if (data.success && data.rows) {
         this.lastRowCount = data.rows.length;
         console.log(`Google Sheets Web App initialized. Found ${this.lastRowCount} rows.`);
-        
+
         // Process existing leads if any
         for (const row of data.rows) {
           await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
@@ -64,7 +65,7 @@ export class GoogleSheetsService {
 
         if (currentRowCount > this.lastRowCount) {
           const newRows = data.rows.slice(this.lastRowCount);
-          
+
           for (const row of newRows) {
             await this.processNewLead([row.timestamp, row.email, row.company, row.role, row.phone, row.source]);
           }
@@ -109,7 +110,7 @@ export class GoogleSheetsService {
 
       console.log(`New lead created: ${lead.name} (${lead.email})`);
 
-      // Trigger email sending (this would be handled by the email service)
+      // Trigger email sending
       await emailService.sendWelcomeEmail(lead);
 
     } catch (error) {
@@ -117,14 +118,14 @@ export class GoogleSheetsService {
     }
   }
 
-  startMonitoring(intervalMs = 30000) {
+  startMonitoring(intervalMs = 30000): void {
     if (!this.config.webAppUrl) {
       console.log('Google Sheets monitoring disabled - not configured');
       return;
     }
 
     console.log(`Starting Google Sheets Web App monitoring every ${intervalMs}ms`);
-    
+
     setInterval(async () => {
       await this.checkForNewLeads();
     }, intervalMs);
