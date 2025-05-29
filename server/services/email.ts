@@ -19,8 +19,7 @@ export class EmailService {
 
   constructor() {
     this.fromEmail = process.env.FROM_EMAIL || 'sophie@zelira.ai';
-    
-    // Configure email transporter
+
     const emailConfig: EmailConfig = {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
@@ -36,18 +35,15 @@ export class EmailService {
 
   async sendWelcomeEmail(lead: Lead): Promise<boolean> {
     try {
-      // Get default email template
       const template = await storage.getDefaultEmailTemplate();
       if (!template) {
         console.error('No default email template found');
         return false;
       }
 
-      // Personalize the email using AI
       const personalizedBody = await openaiService.generatePersonalizedEmail(lead, template.body);
       const personalizedSubject = template.subject.replace(/\{\{name\}\}/g, lead.name).replace(/\{\{company\}\}/g, lead.company || 'your company');
 
-      // Send email
       const mailOptions = {
         from: `Sophie - Zelira.ai <${this.fromEmail}>`,
         to: lead.email,
@@ -57,8 +53,7 @@ export class EmailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      
-      // Log the email
+
       await storage.createEmailLog({
         leadId: lead.id,
         templateId: template.id,
@@ -70,18 +65,16 @@ export class EmailService {
         responseText: null,
       });
 
-      // Create activity
       await storage.createActivity({
         leadId: lead.id,
         type: 'email_sent',
         description: `Welcome email sent to ${lead.name}`,
-        metadata: { 
+        metadata: {
           emailId: result.messageId,
           subject: personalizedSubject,
         },
       });
 
-      // Update lead status
       await storage.updateLead(lead.id, {
         status: 'contacted',
         lastContactedAt: new Date(),
@@ -98,7 +91,7 @@ export class EmailService {
   async sendFollowUpEmail(lead: Lead, message: string): Promise<boolean> {
     try {
       const subject = `Following up on Zelira.ai - ${lead.company || 'Your Business'}`;
-      
+
       const mailOptions = {
         from: `Sophie - Zelira.ai <${this.fromEmail}>`,
         to: lead.email,
@@ -108,8 +101,7 @@ export class EmailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      
-      // Log the email
+
       await storage.createEmailLog({
         leadId: lead.id,
         templateId: null,
@@ -121,18 +113,16 @@ export class EmailService {
         responseText: null,
       });
 
-      // Create activity
       await storage.createActivity({
         leadId: lead.id,
         type: 'email_sent',
         description: `Follow-up email sent to ${lead.name}`,
-        metadata: { 
+        metadata: {
           emailId: result.messageId,
           subject: subject,
         },
       });
 
-      // Update lead
       await storage.updateLead(lead.id, {
         lastContactedAt: new Date(),
       });
@@ -147,13 +137,11 @@ export class EmailService {
 
   async processEmailResponse(lead: Lead, responseText: string): Promise<void> {
     try {
-      // Analyze the response using AI
       const analysis = await openaiService.analyzeEmailResponse(lead, responseText);
-      
-      // Update the email log
+
       const emailLogs = await storage.getEmailLogs();
       const latestEmailLog = emailLogs.find(log => log.leadId === lead.id);
-      
+
       if (latestEmailLog) {
         await storage.updateEmailLog(latestEmailLog.id, {
           responded: true,
@@ -161,22 +149,19 @@ export class EmailService {
         });
       }
 
-      // Create activity
       await storage.createActivity({
         leadId: lead.id,
         type: 'email_response',
         description: `Email response received from ${lead.name}`,
-        metadata: { 
+        metadata: {
           sentiment: analysis.sentiment,
           isInterested: analysis.isInterested,
           nextAction: analysis.nextAction,
         },
       });
 
-      // Qualify the lead based on the response
       const qualification = await openaiService.qualifyLead(lead, responseText);
-      
-      // Update lead with qualification data
+
       let newStatus = lead.status;
       if (qualification.isQualified && qualification.score >= 70) {
         newStatus = 'qualified';
@@ -189,14 +174,19 @@ export class EmailService {
         score: qualification.score,
         qualificationData: qualification,
         responseData: analysis,
+        budget: qualification.budget,
+        decisionMaker: qualification.decisionMaker,
+        timeline: qualification.timeline,
+        needs: qualification.needs,
+        painPoints: qualification.painPoints,
+        authority: qualification.authority,
       });
 
-      // Create qualification activity
       await storage.createActivity({
         leadId: lead.id,
         type: 'lead_qualified',
         description: `Lead ${qualification.isQualified ? 'qualified' : 'not qualified'} with score ${qualification.score}`,
-        metadata: { 
+        metadata: {
           qualification,
           analysis,
         },
